@@ -1,13 +1,15 @@
 import { initializeRedis } from "@/lib/redis";
 import { Paste, FetchPasteApiResponse } from "@/types/paste";
 
+import { NextRequest } from "next/server";
+
 // GET /api/pastes/:id - Fetch a paste via API
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Get the paste using the helper function
     const result = await getPasteById(request, id);
@@ -65,7 +67,7 @@ export async function incrementPasteViewCount(id: string): Promise<void> {
     await redis.hSet(`paste:${id}`, {
       ...pasteData,
       viewCount: newViewCount.toString(),
-      updatedAt: new Date().toISOString(),
+      updatedAt: Math.floor(Date.now() / 1000).toString(), // Unix timestamp in seconds
     });
   } catch (error) {
     console.error("Error incrementing paste view count:", error);
@@ -73,11 +75,11 @@ export async function incrementPasteViewCount(id: string): Promise<void> {
 }
 
 // Function overloads for getPasteById
-export async function getPasteById(request: Request, id: string): Promise<{ paste: Paste; isAvailable: boolean } | null>;
+export async function getPasteById(request: NextRequest, id: string): Promise<{ paste: Paste; isAvailable: boolean } | null>;
 export async function getPasteById(id: string): Promise<{ paste: Paste; isAvailable: boolean } | null>;
 
 // Implementation of getPasteById with support for both signatures
-export async function getPasteById(requestOrId: Request | string, id?: string): Promise<{ paste: Paste; isAvailable: boolean } | null> {
+export async function getPasteById(requestOrId: NextRequest | string, id?: string): Promise<{ paste: Paste; isAvailable: boolean } | null> {
   try {
     // Determine the actual ID based on the arguments
     const actualId = typeof requestOrId === 'string' ? requestOrId : id;
@@ -98,9 +100,9 @@ export async function getPasteById(requestOrId: Request | string, id?: string): 
     const paste: Paste = {
       id: actualId,
       content: pasteData.content,
-      createdAt: new Date(pasteData.createdAt),
-      updatedAt: new Date(pasteData.updatedAt),
-      expiresAt: pasteData.expiresAt !== 'null' ? new Date(pasteData.expiresAt) : null,
+      createdAt: new Date(parseInt(pasteData.createdAt) * 1000), // Convert Unix timestamp back to Date
+      updatedAt: new Date(parseInt(pasteData.updatedAt) * 1000), // Convert Unix timestamp back to Date
+      expiresAt: pasteData.expiresAt !== 'null' ? new Date(parseInt(pasteData.expiresAt) * 1000) : null, // Convert Unix timestamp back to Date
       maxViews: pasteData.maxViews !== 'null' ? parseInt(pasteData.maxViews) : undefined,
       viewCount: parseInt(pasteData.viewCount),
     };
@@ -122,7 +124,7 @@ export async function getPasteById(requestOrId: Request | string, id?: string): 
 
     // Check if paste is expired
     if (paste.expiresAt) {
-      if (currentTime > paste.expiresAt.getTime()) {
+      if (Math.floor(currentTime / 1000) > Math.floor(paste.expiresAt.getTime() / 1000)) {
         // Paste is expired, remove it from storage
         await redis.del(`paste:${actualId}`);
         return { paste, isAvailable: false };

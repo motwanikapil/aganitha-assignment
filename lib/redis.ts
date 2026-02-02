@@ -9,8 +9,8 @@ async function initializeRedis(): Promise<RedisClientType> {
 
   try {
     const client = createClient({
-      url: process.env.REDIS_URL || null,
-    });
+      url: process.env.REDIS_URL,
+    }) as RedisClientType;
 
     client.on("error", (err) => {
       console.error("Redis Client Error:", err);

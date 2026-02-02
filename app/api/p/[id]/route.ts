@@ -2,12 +2,14 @@ import { initializeRedis } from "@/lib/redis";
 import { Paste, FetchPasteApiResponse } from "@/types/paste";
 
 // GET /api/pastes/:id - Fetch a paste via API
+import { NextRequest } from "next/server";
+
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id = null } = await params;
+    const { id } = await params;
 
     // Get the paste using the helper function
     const result = await getPasteById(request, id);
@@ -74,7 +76,7 @@ export async function incrementPasteViewCount(id: string): Promise<void> {
 
 // Function overloads for getPasteById
 export async function getPasteById(
-  request: Request,
+  request: NextRequest,
   id: string,
 ): Promise<{ paste: Paste; isAvailable: boolean } | null>;
 export async function getPasteById(
@@ -83,7 +85,7 @@ export async function getPasteById(
 
 // Implementation of getPasteById with support for both signatures
 export async function getPasteById(
-  requestOrId: Request | string,
+  requestOrId: NextRequest | string,
   id?: string,
 ): Promise<{ paste: Paste; isAvailable: boolean } | null> {
   try {
